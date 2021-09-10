@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import netCDF4
+import datetime
+import timeseries_tools as tt
 
 # Maximum ratio of beam radion on tilted panel vs horizontal surface
 # (to deal with bad approximation when zenith angle is close to 90 degrees)
@@ -222,21 +224,21 @@ def Rb(slope,dph,h,n,lat,lon,azimuth):
     thz = zenithangle(h,n,lat,lon)
     costh = cos_incidenceangle(slope,dph,h,n,lat,lon,azimuth)
     y = costh/np.cos(thz)
-    
+
     # if zenith angle at midday is large (close to polar night)...
     # (or equivalently sunset angle is small)
-    #if (zenithangle(np.array([12]),n,lat,0)>85*np.pi/180):        
+    #if (zenithangle(np.array([12]),n,lat,0)>85*np.pi/180):
     if (hourangle_sunset(n,lat)< 30*np.pi/180):
         # poor approximation close to sunrise/sunset, si set to zero
-        y[thz>85/180*np.pi] = 0 
-        
-            
-    #TODO: Determine how to deal with bad approximation close 
+        y[thz>85/180*np.pi] = 0
+
+
+    #TODO: Determine how to deal with bad approximation close
     # to polar night in high latitudes
-    
-    # previous (un-tested) option    
-    # clip ratio to deal with bad approximation when zenith angle is 
-    # close to 90 degrees 
+
+    # previous (un-tested) option
+    # clip ratio to deal with bad approximation when zenith angle is
+    # close to 90 degrees
     #y = np.clip(y,a_min=MIN_BEAM_PANEL_RATIO,a_max=MAX_BEAM_PANEL_RATIO)
 
     return y
@@ -299,7 +301,7 @@ def H_tiltedpanel(slope,dph,h,n,lat,lon,Hb,Hd,albedo,azimuth=0,use_rt=True):
         Hhd = Hhd * scale_d
 
     # Liu and Jordan model
-    # Liu, B.; Jordan, R. Daily insolation on surfaces tilted towards 
+    # Liu, B.; Jordan, R. Daily insolation on surfaces tilted towards
     # equator. ASHRAE J. 1961, 10, 526–541
     y = ( Rb(slope,dph,h,n,lat,lon,azimuth)*Hhb + Hhd*(1+cosb)/2
             + (Hhb+Hhd)*albedo*(1-cosb)/2)
@@ -319,7 +321,7 @@ def H_tiltedpanel(slope,dph,h,n,lat,lon,Hb,Hd,albedo,azimuth=0,use_rt=True):
 #            y = y * correctionFactor
 #            print("Hb+Hd={}, y_hor={}, Correction factor = {}".format(
 #                    Hb+Hd,y_hor.sum(),correctionFactor))
-        
+
     return y
 
 
@@ -426,30 +428,27 @@ def _checkSameVariables(datasets,variables):
                 raise Exception("Inconsistent variables ({},{})"
                                 .format(d.variables[k],k))
 
-
-def MakeSolarPowerTimeSeries(nc_path,datarange,outpath,
-                             remove_29feb=True,gzip=False,
-                             slope=0,azimuth=0,tracker="south",albedo=0.2,
-                             eta_el=0.65):
-    '''
-    nc_path : string
-        Path to where Reanalyis data  (NC) files are kept
-    datarange: dict
-        Dictionary containing range of years, latitudes, longitudes,
-        and (optionally) points of interest. If points are given,
-    '''
-    raise Exception("Not implemented")
-    #TODO: Implement function
+class SolarPower:
+    def __init__(self,datarange,locations):
+        self.datarange = datarange
+        self.nc_lats = None
+        self.nc_lons = None
+        self.lons_r = None
+        self.coords = None
+        self.df_weight = None
+        self.locations = locations
+        self.locations["sol_slope_rad"] = self.locations["sol_slope"]*np.pi/180
+        self.lats_selected = locations["latitude"]
+        self.lons_selected = locations["longitude"]
 
 
+    def getDataCoords(self):
+        """Return latitudes and longitudes of Reanalysis data points"""
+        return (self.nc_lats, self.nc_lons)
 
-    solar = {}
+    def getAndValidateNcData(self,nc_path,year):
+        datadict = {}
 
-    lats = None
-    temperatures = {}
-
-    for year in range(datarange['year'][0],datarange['year'][1]+1):
-        print('{}: Year={}'.format(datetime.datetime.now(),year))
         nc_nbdsf = netCDF4.Dataset('{}/nbdsf.sfc.gauss.{}.nc'.format(nc_path,year))
         nc_nddsf = netCDF4.Dataset('{}/nddsf.sfc.gauss.{}.nc'.format(nc_path,year))
         nc_vbdsf = netCDF4.Dataset('{}/vbdsf.sfc.gauss.{}.nc'.format(nc_path,year))
@@ -461,71 +460,177 @@ def MakeSolarPowerTimeSeries(nc_path,datarange,outpath,
         h_vd = nc_vddsf.variables['vddsf']
         hT = nc_temp.variables['air']
 
-        # Do this only once (first year)
-        if lats is None:
-            lats = nc_nbdsf.variables['lat']
-            lons = nc_nbdsf.variables['lon']
+        datadict['h_nb'] = h_nb # near, beam
+        datadict['h_nd'] = h_nd # near, diffuse
+        datadict['h_vb'] = h_vb # visible, beam
+        datadict['h_vd'] = h_vd # visible, diffuse
+        datadict['hT'] = hT # temperature
+
+
+        if self.nc_lats  is None:
+            self.nc_lats  = nc_nbdsf.variables['lat']
+            self.nc_lons  = nc_nbdsf.variables['lon']
+        lats = self.nc_lats
+        lons = self.nc_lons
         times = nc_nbdsf.variables['time']
         timesT = nc_temp.variables['time']
+
         #Check that coordinates are the same:
         _checkSameVariables([nc_nbdsf,nc_nddsf,nc_vbdsf,nc_vddsf],
                            variables={'lat':lats,'lon':lons,'time':times})
         _checkSameVariables([nc_nbdsf,nc_temp],variables={'lat':lats,'lon':lons})
 
         units = h_nb.units
-        jd = netCDF4.num2date(times[:],times.units)
-        jdT = netCDF4.num2date(timesT[:],timesT.units)
+        jd = netCDF4.num2date(times[:],times.units,
+            only_use_cftime_datetimes=False,only_use_python_datetimes=True)
+        jdT = netCDF4.num2date(timesT[:],timesT.units,
+            only_use_cftime_datetimes=False,only_use_python_datetimes=True)
 
-        lats_selected = [lat for lat in lats
-                         if ((lat>=datarange['lat'][0]) and
-                             (lat<=datarange['lat'][-1]))]
-        lons_r = ([lon if lon<=180 else lon-360 for lon in lons])
-        lons_selected = sorted([lon for lon in lons_r
-                         if ((lon>=datarange['lon'][0]) and
-                             (lon<=datarange['lon'][-1]))])
-        coords = [(lat,lon) for lat in lats_selected for lon in lons_selected]
-        # Loop thorugh geo range of interest
-        for k in coords:
-            (lat,lon) = k
-            #print("({},{})".format(lat,lon),end=" ")
-            ind_lat = list(lats).index(lat)
-            ind_lon = list(lons_r).index(lon)
+        datadict['jd'] = jd
+        datadict['jdT'] = jdT
 
-            #hs = pd.Series(h[:,ind_lat,ind_lon],index=jd)
-            # Sum visible and near infraread, sum per day W -> Wh
-            Hb = 24*(h_nb[:,ind_lat,ind_lon] + h_vb[:,ind_lat,ind_lon])
-            Hd = 24*(h_nd[:,ind_lat,ind_lon] + h_vd[:,ind_lat,ind_lon])
-
-            print("{}:({},{})".format(coords.index(k),lat,lon),end=" ")
-
-            thisone = pd.DataFrame()
-            for i in range(jd.shape[0]):
-                t = jd[i]
-                nday = t.timetuple().tm_yday
-                hours = pd.np.linspace(0,23,24)
-                hours_indx = pd.date_range(start=t,periods=24,freq='H')
-                rad_tot = H_tiltedpanel(slope=slope,dph=tracker,h=hours,n=nday,
-                                            lat=lat,lon=lon,Hb=Hb[i],Hd=Hd[i],
-                                            albedo=albedo,azimuth=azimuth)
-                solP = pvPower(rad_tot,eta_el)
-
-
-                radiation =  pd.DataFrame({'rad_tot':rad_tot,'power':solP},
-                                          index=hours_indx)
-                thisone = pd.concat([thisone,radiation])
-            temperature = pd.DataFrame(hT[:,ind_lat,ind_lon],index=jdT)
-
-            if k in solar:
-                solar[k] = pd.concat([solar[k],thisone],axis=0)
+        # if data coordinates have not yet been specified (first run)
+        if self.coords is None:
+            # if no lat,lon points have been selected (use entire grid)
+            if self.lats_selected is None:
+                # Use all lat,lon pairs in the range
+                self.lats_selected = [lat for lat in lats
+                                 if ((lat>=self.datarange['lat'][0]) and
+                                     (lat<=self.datarange['lat'][-1]))]
+                self.lons_r = ([lon if lon<=180 else lon-360 for lon in lons])
+                self.lons_selected = sorted([lon for lon in self.lons_r
+                                 if ((lon>=self.datarange['lon'][0]) and
+                                     (lon<=self.datarange['lon'][-1]))])
+                self.coords = [(lat,lon) for lat in self.lats_selected
+                               for lon in self.lons_selected]
             else:
-                solar[k] = thisone
+                self.coords = pd.DataFrame({'lat':self.lats_selected,
+                                        'lon':self.lons_selected})
 
-            if k in temperatures:
-                temperatures[k] = pd.concat([temperatures[k],temperature],axis=0)
-            else:
-                temperatures[k] = temperature
+        return datadict
 
-    #TODO: Complete implementation
+    def MakePowerTimeSeriesSelection(self,nc_path,datarange,
+            slope=0,azimuth=0,tracker="south",albedo=0.2, eta_eff=0.65,
+            rad_scaling=1.0,Ninterpolate=3):
+        '''
+        nc_path : string
+            Path to where Reanalyis data  (NC) files are kept
+        datarange: dict
+            Dictionary containing range of years, latitudes, longitudes,
+            and (optionally) points of interest. If points are given,
+        '''
+
+        solar = {}
+        temperatures = {}
+
+        for year in range(datarange['year'][0],datarange['year'][1]+1):
+            print('{}: Year={}'.format(datetime.datetime.now(),year))
+
+            datadict = self.getAndValidateNcData(nc_path,year)
+            h_nb = datadict['h_nb']
+            h_nd = datadict['h_nd']
+            h_vb = datadict['h_vb']
+            h_vd = datadict['h_vd']
+            hT = datadict['hT']
+            jd = datadict['jd']
+            jdT = datadict['jdT']
+
+            # 1464x73x144 (time x lat x lon) -> 1464x10512 (time x latlon_grid)
+            vdim = h_vb.shape[0]
+            h_vb_2d = h_vb[:].reshape((vdim,-1),order="C")
+            h_vd_2d = h_vd[:].reshape((vdim,-1),order="C")
+            h_nb_2d = h_nb[:].reshape((vdim,-1),order="C")
+            h_nd_2d = h_nd[:].reshape((vdim,-1),order="C")
+            hT_2d = hT[:].reshape((hT.shape[0],-1),order="C")
+
+            # If not done before, calculate geographical interpolation weights:
+            if self.df_weight is None:
+                print("Computing geographical interpolation weights")
+                latlon_grid = tt.getDataGrid(self.nc_lats,self.nc_lons)
+                latlon_select = pd.DataFrame({
+                    'lats':self.lats_selected,
+                    'lon':self.lons_selected})
+                self.df_weight = tt.computeInterpolationWeights(
+                        latlon_grid,latlon_select,Ninterpolate=Ninterpolate)
+
+            for k,row in self.locations.iterrows():
+            #for k,row in locations.loc[[5],:].iterrows():
+                # weighted average of neighbour grid points. - sum per day: W -> Wh
+                Hb = 24*(h_nb_2d+h_vb_2d).dot(self.df_weight[k])
+                Hd = 24*(h_nd_2d+h_vd_2d).dot(self.df_weight[k])
+                HT = hT_2d.dot(self.df_weight[k])
+
+                lat = row['latitude']
+                lon = row['longitude']
+                slope = row['sol_slope_rad']
+                eta_eff = row['sol_adj']
+                #print("{}:({},{})".format(k,lat,lon),end=" ")
+                thisone = pd.DataFrame()
+
+                # NOTE! For compatibility with previous matlab code:
+                # add 0.5 hours to get datapints in the middle of the interval
+                # use use_rt=True in decomposition of radiation.
+                use_rt=False
+                h_add=0 #previously used 0.5 (middle of hourly time intervals)
+
+               # loop over all days:
+                for i in range(jd.shape[0]):
+                    t = jd[i]
+                    nday = t.timetuple().tm_yday
+                    hours = np.linspace(0,23,24) + h_add
+                    hours_indx = pd.date_range(start=t,periods=24,freq='H')
+                    rad_tot = H_tiltedpanel(slope=slope,dph=tracker,h=hours,n=nday,
+                                                lat=lat,lon=lon,Hb=Hb[i],Hd=Hd[i],
+                                                albedo=albedo,azimuth=azimuth,
+                                                use_rt=use_rt)
+                    solP = pvPower(rad_tot,eta_eff)
+                    # radiation (beam/diffuse) on horizontal surface hour-by-hour
+        #            #rad_comp = (rad_tot,rad_b,rad_d,rad_r)
+                    (rad0_tot,rad0_b,rad0_d,rad0_r) = H_tiltedpanel_components(
+                            slope=0,tracker=tracker,
+                            hour=hours,n_day=nday,
+                            lat=lat,lon=lon,Hb=Hb[i],Hd=Hd[i],
+                            albedo=albedo,azimuth=azimuth)
+                    correctionFactor = 1
+                    if (rad0_tot.sum()>0):
+                        correctionFactor = (Hb[i]+Hd[i])/rad0_tot.sum()
+                        solP = solP * correctionFactor
+
+
+                    radiation =  pd.DataFrame({'rad_panel':rad_tot,'power':solP,
+                                               'rad_beam':rad0_b,
+                                               'rad_diffuse':rad0_d},
+                                              index=hours_indx)
+                    thisone = pd.concat([thisone,radiation])
+        #        temperature = pd.DataFrame(hT[:,ind_lat,ind_lon],index=jdT)
+                temperature = pd.DataFrame(HT,index=jdT)
+
+                if k in solar:
+                    solar[k] = pd.concat([solar[k],thisone],axis=0)
+                else:
+                    solar[k] = thisone
+
+                if k in temperatures:
+                    temperatures[k] = pd.concat([temperatures[k],temperature],axis=0)
+                else:
+                    temperatures[k] = temperature
+
+        #Interpolate temperature (cf how it is done for wind)
+        for k in temperatures:
+            temperatures[k] = temperatures[k].resample('1H').interpolate('linear')
+            # Add missing hours at the end 19,20,21,22,23:
+            missinghours = 23-temperatures[k].index[-1].hour
+            if missinghours!=5:
+                raise Exception("Something is wrong")
+            missingindx = pd.date_range(start=temperatures[k].index[-1]
+                                        +datetime.timedelta(hours=1),
+                                      periods=missinghours,freq='H')
+            missingwind = temperatures[k].iloc[[-1]*missinghours].set_index(missingindx)
+            temperatures[k] = temperatures[k].append(missingwind)
+            solar[k]['T']=temperatures[k]
+
+        print('{}: Done'.format(datetime.datetime.now()))
+        return solar
 
 
 

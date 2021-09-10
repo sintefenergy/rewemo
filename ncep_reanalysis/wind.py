@@ -34,7 +34,12 @@ class WindPower:
         self.lons_selected = None
         self.coords = None
         self.powercurve_refs = None # if specified, list of which powercurve to use
+        self.df_weight = None
 
+
+    def getDataCoords(self):
+        """Return latitudes and longitudes of Reanalysis data points"""
+        return (self.nc_lats, self.nc_lons)
 
     def computepower(self,wind,powercurve):
         f = interp1d(powercurve.index, powercurve.values, kind='linear',
@@ -44,7 +49,6 @@ class WindPower:
 
 
     def getAndValidateNcData(self,nc_path,year):
-        print('{}: Year={}'.format(datetime.datetime.now(),year))
 
         datadict = {}
         nc_vwnd = netCDF4.Dataset('{}/vwnd.sig995.{}.nc'.format(nc_path,year))
@@ -231,18 +235,15 @@ class WindPower:
 
         return (wind,wind_onland)
 
-    def computeInterpolationWeights(self,Ninterpolate=3,
-                                    plotWeights=False,outpath=''):
+
+
+    def computeInterpolationWeights(self,Ninterpolate=3):
         '''Compute geographical interpolation weights
 
         parameters
         ----------
         Ninterpolate : int
           number of points to interpolate (N=1: nearest neighbour)
-        plotWeights : bool
-          whether to create a plot illustrating interpolation
-        outpath : string
-          path where plot (if any) is saved
 
         returns
         -------
@@ -250,84 +251,17 @@ class WindPower:
           NxM table of interpolation weights. The columns are the M selected
           points of interest, and rows are tne N grid points.
         '''
-
-        if self.nc_lats is None:
-            raise Exception("No data Reanalysis has yet been retrieved.")
-
-#        df_weight = pd.DataFrame(columns=self.lats_selected.index)
         print("Determining geographical interpolation weights")
-        g_lats = self.nc_lats[:]
-        g_lons = [l if l<180 else l-360 for l in self.nc_lons[:]]
-        repl = {-90:-89.999, 90:89.999}
-        g_lats = [repl[x] if x in repl else x for x in g_lats]
-        # this is a list of all (lat,lon) coordinates for which there is data:
-        latlon_grid = np.array([[lat,lon] for lat in g_lats for lon in g_lons ])
-        latlon_grid = pd.DataFrame(data=latlon_grid,columns=['lat','lon'])
-        #latlon_grid['lat'] = g_lats[:]
-        #latlon_grid['lon'] = g_lons[:]
-        # this is a list of (lat,lon) coordinates of interest:
-#        latlon_select = np.array([self.lats_selected,
-#                                  self.lons_selected]).transpose()
-        latlon_select = pd.DataFrame()
-        latlon_select['lat'] = self.lats_selected
-        latlon_select['lon'] = self.lons_selected
-
-        latlon_grid = pd.DataFrame(latlon_grid,columns=['lat','lon'])
-        latlon_select = pd.DataFrame(latlon_select,columns=['lat','lon'])
+        latlon_grid = tt.getDataGrid(self.nc_lats,self.nc_lons)
+        latlon_select = pd.DataFrame({
+            'lats':self.lats_selected,
+            'lon':self.lons_selected})
         df_weight = tt.computeInterpolationWeights(
                 latlon_grid,latlon_select,Ninterpolate)
-
-#        for i in range(self.lats_selected.size):
-#            latlon = latlon_select[i,:]
-#            dist=pd.Series(_spherical_dist(latlon_grid,latlon))
-#            df_weight.loc[:,i] = [0]*latlon_grid.shape[0]
-#            if (dist==0).any():
-#                # weight one where dist=0, zero elsewhere
-#                df_weight.loc[dist==0,i] = 1
-#            else:
-#                nsmallest = dist.nsmallest(n=Ninterpolate)
-#                # weight proportioinal to inverse distance
-#                nweight = 1/nsmallest
-#                # normalise
-#                nweight = nweight/nweight.sum()
-#                df_weight.loc[nsmallest.index,i] = nweight
-#
-        if plotWeights:
-            tt.plotWeights(latlon_grid,latlon_select,df_weight,plotlabels=True,
-                           filename=outpath+"/interpolate_wind.png")
-#            plt.figure()
-#            lon_min = latlon_select[:,1].min()-3
-#            lon_max = latlon_select[:,1].max()+3
-#            lat_min = latlon_select[:,0].min()-3
-#            lat_max = latlon_select[:,0].max()+3
-#            m = mpl_toolkits.basemap.Basemap(projection='mill',resolution='l',
-#                        llcrnrlon=lon_min,llcrnrlat=lat_min,
-#                        urcrnrlon=lon_max,urcrnrlat=lat_max,
-#                        lat_0=60,lon_0=10)
-#            m.drawcoastlines(linewidth=0.25)
-#            m.drawcountries(linewidth=0.25)
-#            m.drawmeridians(np.arange(0,360,10),labels=[True,True,True,True])
-#            m.drawparallels(np.arange(-90,90,10),labels=[True,True,True,True])
-#            xg,yg = m(latlon_grid[:,1],latlon_grid[:,0])
-#            xp,yp = m(latlon_select[:,1],latlon_select[:,0])
-#            for wcol in df_weight.columns:
-#                neighbours = df_weight.loc[df_weight[wcol]!=0,wcol]
-#                for ni,nv in neighbours.iteritems():
-#                    plt.plot([xp[wcol],xg[ni]],[yp[wcol],yg[ni]],
-#                             linewidth=nv*10,color='k')
-#            m.scatter(xg,yg,marker='o',color='r',zorder=10)
-#            m.scatter(xp,yp,marker='o',color='b',zorder=11)
-#
-#
-#            plt.gcf().set_size_inches(6,6)
-#            plt.savefig(os.path.join(outpath,"fig_geo_interpol.png"),
-#                        bbox_inches = 'tight')
         return df_weight
 
-    def makePowerTimeSeriesSelection(self,nc_path,outpath,powercurves,
-                            windspeed_scaling=1.0,
-                            remove_29feb=True,gzip=False,plotWeights=False,
-                            Ninterpolate=3):
+    def makePowerTimeSeriesSelection(self,nc_path,powercurves,
+        windspeed_scaling=1.0, Ninterpolate=3):
         '''
         make wind power time series for selected lat,lons, using interpolation
 
@@ -335,36 +269,20 @@ class WindPower:
         ==========
         nc_path : str
             Path where Reanalysis NC files are located
-        outpath : str
-            Path where generated time series should be placed
         powercurves : pandas dataframe
             Table giving powercurve
         windspeed_scaling : float or dict
             Scaling factor for wind speed, can be single number, or dictionary
             with different values for different (lat,lon) keys
-        remove_29feb : bool
-            Whether leap year days should be removed
-        gzip : bool
-            Whether to zip the output csv files
         Ninterpolate : int
             number of nearest neighbours used for interpolation
-        plotWeights : bool
-            whether to plot interpolation weights in a figure
         '''
         wind = {}
 
-        if not os.path.exists(outpath):
-            print("Making path for output data:\n{}".format(outpath))
-            os.makedirs(os.path.abspath(outpath))
-
         years = self.datarange['year']
 
-        # If not getting windspeed for grid points, compute 2D interpolation
-        # factors
-        df_weight = None
-
         for year in range(years[0],years[1]+1):
-
+            print('{}: Year={}'.format(datetime.datetime.now(),year))
             datadict = self.getAndValidateNcData(nc_path,year)
 
             hu = datadict['hu']
@@ -378,19 +296,18 @@ class WindPower:
             hT_2d = hT[:].reshape((vdim,-1),order="C")
 
             # If not done before, calculate geographical interpolation weights:
-            if df_weight is None:
-                df_weight = self.computeInterpolationWeights(
-                        plotWeights=plotWeights,outpath=outpath)
-            for i in df_weight.columns:
+            if self.df_weight is None:
+                self.df_weight = self.computeInterpolationWeights()
+            for i in self.df_weight.columns:
                 thisone = pd.DataFrame(
-                        {'vwnd':hv_2d.dot(df_weight[i]),
-                         'uwnd':hu_2d.dot(df_weight[i]),
-                         'T':hT_2d.dot(df_weight[i])},
+                        {'vwnd':hv_2d.dot(self.df_weight[i]),
+                         'uwnd':hu_2d.dot(self.df_weight[i]),
+                         'T':hT_2d.dot(self.df_weight[i])},
                          index=pd.to_datetime(jd))
                 thisone['v_calc'] = np.sqrt(np.square(thisone['uwnd'])
                                           +np.square(thisone['vwnd']))
                 thisone['v'] = np.sqrt(np.square(hu_2d)
-                                          +np.square(hv_2d)).dot(df_weight[i])
+                                          +np.square(hv_2d)).dot(self.df_weight[i])
                 #print("thisone = ",thisone.index)
                 if i in wind:
                     wind[i] = pd.concat([wind[i],thisone],axis=0)
@@ -412,8 +329,7 @@ class WindPower:
             missingwind = wind[k].iloc[[-1]*missinghours].set_index(missingindx)
             wind[k] = wind[k].append(missingwind)
 
-        print("Computing power and exporting results...")
-        summary = pd.DataFrame(self.coords,columns=['lat','lon'])
+        print("Computing power from wind speed...")
         for k in wind:
             print(k,end=" ")
             pc = self.powercurve_refs[k]
@@ -424,24 +340,10 @@ class WindPower:
                 scaling = windspeed_scaling
             wind[k]['power'] = self.computepower(
                     scaling*wind[k]['v'],powercurves[pc])
-            timeseries_data=wind[k]
-            if remove_29feb:
-                mask = ((wind[k].index.month==2) & (wind[k].index.day==29))
-                timeseries_data = wind[k][~mask]
-
-            if gzip:
-                timeseries_data.to_csv(
-                        '{}/wind_{}_pc{}.csv.gz'.format(outpath,k,pc),
-                        compression="gzip")
-            else:
-                timeseries_data.to_csv(
-                        '{}/wind_{}_pc{}.csv'.format(outpath,k,pc))
-
-            tmp = pd.DataFrame(timeseries_data.mean(),columns=[k]).T
-            summary = summary.combine_first(tmp)
-        summary.to_csv('{}/wind_SUMMARY.csv'.format(outpath))
 
         return wind
+
+
 
 
     def plotTimeseries(self,outpath,windpower,wind_onland=None,k_plot=None):
@@ -528,26 +430,3 @@ class WindPower:
         plt.gcf().set_size_inches(6,6)
         plt.savefig(os.path.join(outpath,"fig_wind_capacityfactor_mean.png"),
                     bbox_inches = 'tight')
-
-def _spherical_dist(pos1, pos2, r=6378.137):
-    """Calculates the distance between locations, based on each point's longitude and latitude.
-    (Harvesine formula)
-    Args:
-        pos1: array of 1D arrays containing the longitude and latitude of a point.
-            example: [9.1, 45.3] or [[9.1, 45.3], [19.3, 20.3]]
-        pos2: array of 1D arrays containing the longitude and latitude of a point.
-            example: [9.1, 45.3] or [[9.1, 45.3], [19.3, 20.3]]
-        r: Multiplicator to trasform the distance from radians to miles or kilometers.
-
-    Returns:
-        The distances between the given points in radians(r=1), miles or kilometers.
-    """
-    ilat=0
-    ilon=1
-    pos1 = pos1 * np.pi / 180
-    pos2 = pos2 * np.pi / 180
-    cos_lat1 = np.cos(pos1[..., ilat])
-    cos_lat2 = np.cos(pos2[..., ilat])
-    cos_lat_d = np.cos(pos1[..., ilat] - pos2[..., ilat])
-    cos_lon_d = np.cos(pos1[..., ilon] - pos2[..., ilon])
-    return r * np.arccos(cos_lat_d - cos_lat1 * cos_lat2 * (1 - cos_lon_d))

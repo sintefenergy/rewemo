@@ -75,24 +75,42 @@ def computeInterpolationWeights(latlon_grid,latlon_select,Ninterpolate=3):
     print(".")
     return df_weight
 
-def plotWeights(latlon_grid,latlon_select,df_weight,plotlabels=True,
-                filename="fig_geo_interpol.png"):
+def getDataGrid(nc_lats,nc_lons):
+    """Return dataframe with all lat,lon in reanalysis data"""
+
+    if (nc_lats is None) or (nc_lons is None):
+        raise Exception("No Reanalysis data has yet been retrieved.")
+
+    g_lats = nc_lats[:]
+    g_lons = [l if l<180 else l-360 for l in nc_lons[:]]
+    repl = {-90:-89.999, 90:89.999}
+    g_lats = [repl[x] if x in repl else x for x in g_lats]
+    # this is a list of all (lat,lon) coordinates for which there is data:
+    latlon_grid = np.array([[lat,lon] for lat in g_lats for lon in g_lons ])
+    latlon_grid = pd.DataFrame(data=latlon_grid,columns=['lat','lon'])
+#        latlon_grid = pd.DataFrame(latlon_grid,columns=['lat','lon'])
+    return latlon_grid
+
+
+def plotWeights(wind_obj,plotlabels=True,filename=None,
+        proj=geoplot.crs.Mercator()):
     '''Draw grid points and data points on a map, with lines showing
     interpolation weights
 
     parameters
     ----------
-    latlon_grid : pandas.DataFrame
-      latitude and longitude of data grid points
-    latlon_select : pandas.DataFrame
-      latitude and longitude of points of interest
-    df_weight : pandas.DataFrame
-      NxM table of interpolation weights. The columns are the M selected
-      points of interest, and rows are tne N grid points.
+    plotlabels : boolean
+        wheter to show labels
+    filename : str
+        name of file for saving figure
     '''
-    if "geoplot" not in sys.modules:
-        print("plotWeigths method requires geoplot. Skipping.")
-        return
+    (nc_lats,nc_lons) = wind_obj.getDataCoords()
+    latlon_grid = getDataGrid(nc_lats,nc_lons)
+    latlon_select = pd.DataFrame({
+        'lat':wind_obj.lats_selected,
+        'lon':wind_obj.lons_selected})
+    df_weight = wind_obj.df_weight
+
     gdf_grid = geopandas.GeoDataFrame(latlon_grid,geometry=[
             shapely.geometry.Point(x, y)
             for x, y in zip(latlon_grid.lon, latlon_grid.lat)]
@@ -104,7 +122,7 @@ def plotWeights(latlon_grid,latlon_select,df_weight,plotlabels=True,
     extent = gdf_select.total_bounds
 
     world = geopandas.read_file(geoplot.datasets.get_path('world'))
-    proj = geoplot.crs.Mercator()
+    #proj = geoplot.crs.Mercator()
     #proj = geoplot.crs.Miller()
     #ax = geoplot.webmap(world, projection=proj)
 
@@ -120,15 +138,68 @@ def plotWeights(latlon_grid,latlon_select,df_weight,plotlabels=True,
     ax = geoplot.polyplot(world, projection=proj, figsize=(6,8), extent=extent,
                           facecolor="lightgray",edgecolor="white")
     geoplot.pointplot(gdf_grid,color="black",marker=".",ax=ax,extent=extent,
-                      label="data grid")
+                      label="data grid",projection=proj)
     geoplot.pointplot(gdf_select,color="red",marker='o',ax=ax,extent=extent,
-                      label="selected point")
-    geoplot.sankey(dfw,ax=ax,scale="w",limits=[0,10],zorder=0)
+                      label="selected point",projection=proj)
+    geoplot.sankey(dfw,ax=ax,scale="w",limits=[0,10],zorder=0,projection=proj)
+
+    if plotlabels:
+        for x, y, label in zip(gdf_select.geometry.x, gdf_select.geometry.y,
+                gdf_select.index):
+            plt.text(x, y, label, horizontalalignment='left',
+                transform=ccrs.Geodetic())
 
     plt.legend(loc="upper left", facecolor='white', framealpha=1)
 
     if filename is not None:
-        plt.savefig(filename,bbox_inches = 'tight',dpi=150)
+        plt.savefig(filename,bbox_inches='tight',dpi=150)
+
+def plotMap(wind_obj,windp,filename=None,proj=geoplot.crs.Mercator(),
+    variable="capacityfactor"):
+    '''Plot summary data on map
+
+    parameters
+    ----------
+    windp : dict
+        object holding power series (output from makePowerTimeSeriesSelection)
+    plotlabels : boolean
+        wheter to show labels
+    filename : str
+        name of file for saving figure
+    '''
+    latlon_select = pd.DataFrame({
+        'lat':wind_obj.lats_selected,
+        'lon':wind_obj.lons_selected})
+    gdf_select = geopandas.GeoDataFrame(latlon_select,geometry=[
+            shapely.geometry.Point(x, y)
+            for x, y in zip(latlon_select.lon, latlon_select.lat)]
+        )
+    margin = 2
+    extent = gdf_select.total_bounds+[-margin,-margin,margin,margin]
+
+    world = geopandas.read_file(geoplot.datasets.get_path('world'))
+    #proj = geoplot.crs.Mercator()
+    #proj = geoplot.crs.Miller()
+    #ax = geoplot.webmap(world, projection=proj)
+
+    plotvalues=None
+    if variable == "capacityfactor":
+        plotvalues = pd.concat(windp).loc[:,"power"].unstack(0).mean()
+    else:
+        variable = None
+    gdf_select[variable] = plotvalues
+
+    ax = geoplot.polyplot(world, projection=proj, figsize=(6,8), extent=extent,
+                          facecolor="lightgray",edgecolor="white")
+    geoplot.pointplot(gdf_select,marker='o',ax=ax,extent=extent,
+                      projection=proj, hue=variable,legend=True)
+
+    #plt.legend(loc="upper left", facecolor='white', framealpha=1)
+
+    if filename is not None:
+        plt.savefig(filename,bbox_inches='tight',dpi=150)
+
+
 
 def plotWeights_OLD(latlon_grid,latlon_select,df_weight,plotlabels=True,
                 filename="fig_geo_interpol.png"):
@@ -292,3 +363,92 @@ def plotWithValues(gdf,column=None,labels=False,outpath=None):
     if outpath is not None:
         plt.savefig(os.path.join(outpath,"fig_values_{}.png".format(column)),
                     bbox_inches = 'tight')
+
+def saveToFile(tseries,outpath,remove_29feb=True,gzip=False,emps_format=False):
+    """Save power time series to files
+
+    Parameters
+    ==========
+    tseries : dict
+        power time series data (output from makePowerTimeSeriesSelection)
+    outpath : str
+        Path where generated time series should be placed
+    remove_29feb : bool
+        Whether leap year days should be removed
+    gzip : bool
+        Whether to zip the output csv files
+    emps_format : bool
+        Create EMPS format files
+    """
+    print("Exporting to file")
+
+    if emps_format:
+        saveToFileEmps(tseries,outpath)
+    else:
+        if not os.path.exists(outpath):
+            print("Making path for output data:\n{}".format(outpath))
+            os.makedirs(os.path.abspath(outpath))
+
+    for k,timeseries_data in tseries.items():
+        print(k,end=" ")
+        if remove_29feb:
+            mask = ((timeseries_data.index.month==2) &
+                    (timeseries_data.index.day==29))
+            timeseries_data = timeseries_data[~mask]
+        if gzip:
+            timeseries_data.to_csv(
+                    '{}/wind_{}_pc{}.csv.gz'.format(outpath,k,pc),
+                    compression="gzip")
+        else:
+            timeseries_data.to_csv(
+                    '{}/wind_{}_pc{}.csv'.format(outpath,k,pc))
+
+
+def saveToFileEmps(tseries,outpath):
+    """Save power time series to files in EMPS text file format
+
+    Parameters
+    ==========
+    tseries : dict
+        power time series data (output from makePowerTimeSeriesSelection)
+    outpath : str
+        Path where generated time series should be placed
+    """
+    print("Exporting to file")
+    if not os.path.exists(outpath):
+        print("Making path for output data:\n{}".format(outpath))
+        os.makedirs(os.path.abspath(outpath))
+
+    for k,timeseries_data in tseries.items():
+        print(k,end=" ")
+
+        # remove leap year days (29 Feb)
+        mask = ((timeseries_data.index.month==2) &
+                (timeseries_data.index.day==29))
+        timeseries_data = timeseries_data[~mask]
+
+        # remove last day (31 dec) to get 52*7=364 days
+        mask = ((timeseries_data.index.month==12) &
+                (timeseries_data.index.day==31))
+        timeseries_data = timeseries_data[~mask]
+
+        dfx=timeseries_data[["power"]].copy()
+        y_num= len(dfx.index.year.unique())
+        y_start=dfx.index.year[0]
+        dfx["hour"] = dfx.index.hour
+        dfx["date"] = dfx.index.date
+        dfx=dfx.set_index(["date","hour"]).unstack("hour")
+        headers= [
+            "Antall aar;Startaar;Antall uker;Startuke;Sluttuke;Startdogn;"
+            +"Type data(Vind=1, Tilsig=2);"
+            +"Type oppløsning(Uke=1, Dogn=2, Time=3);",
+            "; ".join([str(x) for x in
+                        [y_num,y_start,52,1,52,0,1,3,"VIND"]]),
+            "Vindserier på timenivå;"]
+        fname = '{}/{}.csv'.format(outpath,k)
+        with open(fname, 'w') as empsfile:
+            for line in headers:
+                empsfile.write(line+"\n")
+            dfx.to_csv(empsfile,decimal=".",sep=";",
+                float_format="{0:9.3f}".format,header=False,
+                index=False,line_terminator="\n")
