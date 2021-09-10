@@ -7,3 +7,6 @@ Documentation about the
 How to download data files: See ERA5_download notebook
 
 Working with GRIB files: See ERA5_analysie notebook
+
+
+Comparing ERA-Interim and MERRA: https://doi.org/10.1016/j.renene.2014.09.042
