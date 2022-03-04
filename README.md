@@ -1,4 +1,4 @@
-# Energy time series using ERA5 dataset
+# ReWeMo - Renewable energy time series from numerical weather model data
 
 
 Documentation about the

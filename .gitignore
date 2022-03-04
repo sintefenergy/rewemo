@@ -1,10 +1,6 @@
 ncep_reanalysis/__pycache__/
 ncep_reanalysis/output/
-*.nc
-*.idx
-*.grb
-*.grib
-era5/.ipynb_checkpoints/
-*.csv
+data
 *.pyc
 examples/.ipynb_checkpoints/
+examples/output_wind_timeseies/
