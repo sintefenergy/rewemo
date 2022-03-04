@@ -1,2 +1,9 @@
 ncep_reanalysis/__pycache__/
 ncep_reanalysis/output/
+*.nc
+*.idx
+*.grb
+*.grib
+era5/.ipynb_checkpoints/
+*.csv
+*.pyc
