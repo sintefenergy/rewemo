@@ -1,0 +1,10 @@
+smøla:
+  lat: 63.407
+  lon: 7.924
+  power_curve: "offshore"
+  wind_scaling: 1
+tonstad:
+  lat: 58.5316
+  lon: 6.7928
+  power_curve: "offshore"
+  wind_scaling: 1

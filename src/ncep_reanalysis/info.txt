@@ -1,0 +1,4 @@
+This Python code is for computing wind and solar power time-series from the NCEP/NCAR Reanalysis data
+
+2018-04-05
+harald.svendsen@sintef.no

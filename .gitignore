@@ -7,3 +7,4 @@ ncep_reanalysis/output/
 era5/.ipynb_checkpoints/
 *.csv
 *.pyc
+examples/.ipynb_checkpoints/
