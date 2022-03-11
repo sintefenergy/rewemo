@@ -12,7 +12,7 @@ setup(
 		"Intended Audience :: Science/Research",
 		"License :: OSI Approved :: MIT License"
 		],
-#	packages = ["rewemo"],
-	package_dir= {"": "src/rewemo"},
+	packages = ["rewemo"],
+	package_dir= {"": "src"},
 	python_requires = ">=3.7"
 )

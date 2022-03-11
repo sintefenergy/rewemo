@@ -1,14 +1,11 @@
 import pandas as pd
 from pathlib import Path
-from energy_timeseries import wind_power
-
-# May have to set the ECCODES_DEFINITION_PATH environment variable (at least in jupyter)
-# %env ECCODES_DEFINITION_PATH=C:/Users/hsven/Miniconda3/envs/timeseries/Library/share/eccodes/definitions
-from energy_timeseries import era5
+import rewemo.windpower as wp
+from rewemo import era5
 from yaml import safe_load
 import logging
 
-
+# Modify these:
 file_wpp_locations = "wpp_locations.yaml"
 file_power_curves = "ncep_reanalysis/wind_powercurves_tradewind.csv"
 files_wind_data = "C:/Users/hsven/code/energy_timeseries/era5/data_europe/era5data_month=2021-*.grib"
@@ -30,7 +27,7 @@ for i, wpp in wpp_locations.iterrows():
     pcurve = power_curves[pcurve_ref]
     wind_scaling = wpp["wind_scaling"]
 
-    windp = wind_power.compute_wind_power(df_wind=wind_data[i], df_power_curve=pcurve, wind_scaling=wind_scaling)
+    windp = wp.compute_wind_power(df_wind=wind_data[i], df_power_curve=pcurve, wind_scaling=wind_scaling)
     wind_data[i]["power"] = windp
     # Save to file
     csv_filename = output_path / f"windpower_{i}.csv"

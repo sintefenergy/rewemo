@@ -1,11 +1,18 @@
-# ReWeMo - Renewable energy time series from numerical weather model data
+# rewemo - Renewable energy time series from numerical weather model data
 
+This Python package includes methods for downloading weater model data from open data repositories, and for creating wind and PV energy time series based on these data.
 
-Documentation about the
+## ERA5 data
+
+- Documentation about the
 [ERA5 dataset](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation).
 
+- See request queue: https://cds.climate.copernicus.eu/live/queue
 
-## Solar data
+- Selection of parameters for efficient downloading: https://cds.climate.copernicus.eu/toolbox/doc/how-to/4_how_to_use_output_widgets/4_how_to_use_output_widgets.html#output-ct-output-download
+
+
+### Solar data
 
 Radiation quantities: https://www.ecmwf.int/sites/default/files/elibrary/2015/18490-radiation-quantities-ecmwf-model-and-mars.pdf
 
@@ -23,7 +30,7 @@ Related quantities (not used):
 * vddsf - Visible Diffuse Downward Solar Flux (https://apps.ecmwf.int/codes/grib/param-db/?id=260347)
 * vbdsf - Visible Beam Downward Solar Flux (W/m2) (https://apps.ecmwf.int/codes/grib/param-db/?id=260346)
 
-## Wind data
+### Wind data
 * u100 - 100 metre U wind component (https://apps.ecmwf.int/codes/grib/param-db?id=228246)
 * v100 - 100 metre V wind component (https://apps.ecmwf.int/codes/grib/param-db?id=228247)
 * u10 - 10 metre U wind component (https://apps.ecmwf.int/codes/grib/param-db?id=165)
@@ -35,10 +42,10 @@ Other data
 * tp - Total precipitation (https://apps.ecmwf.int/codes/grib/param-db?id=228)
 
 
-# NCEP/NCAR Reanalysis data
-This is found in the ncep_reanalysis package
+## NCEP/NCAR Reanalysis data
+This is found in the ncep_reanalysis folder
 
-# MERRA-2 data
+## MERRA-2 data (Not implemented yet)
 Data access: https://disc.gsfc.nasa.gov/datasets?project=MERRA-2
 1980-present
 Wind: 
