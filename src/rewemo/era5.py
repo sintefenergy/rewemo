@@ -59,6 +59,7 @@ def get_default_variable_list():
     ]
     return variables
 
+
 # TODO: Remove this - inefficient way of downloading data.
 def INEFFICIENT_download_era5_data(
     locations: pd.DataFrame, years: List, data_path: Path, replace_existing=False, era5_variables=None
@@ -153,8 +154,8 @@ def extract_solar_radiation_at_locations(file_pattern, locations):
 
     Nearest datapoint is used
 
-    file_pattern : pathlib.Path
-        which files to read
+    file_pattern : str
+        which files to read (include * to read many files)
     locations : pandas.DataFrame
         columns "lat" and "lon" give locations of panel
 
@@ -165,8 +166,8 @@ def extract_solar_radiation_at_locations(file_pattern, locations):
     data_dict = {}
     for i, row in locations.iterrows():
         logging.info(i)
-        lat = locations["lat"]
-        lon = locations["lon"]
+        lat = row["lat"]
+        lon = row["lon"]
         data_lat, data_lon = find_nearest_datapoint(lat, lon, ds_ssrd)
         da_ssrd = ds_ssrd.sel(latitude=data_lat, longitude=data_lon).ssrd
         da_fdir = ds_fdir.sel(latitude=data_lat, longitude=data_lon).fdir

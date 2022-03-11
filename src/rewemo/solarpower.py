@@ -115,10 +115,12 @@ def panel_angles(tracker, slope, azimuth, lat, lon, hour_of_day, day_of_year):
         # panel is always facing the sun, slope equals sun angle from zenith
         delta_phi = 0
         slope = zenithangle(hour_of_day, day_of_year, lat, lon)
+    else:
+        raise ValueError(f"Tracker must be '2-axis','azimuth','fixed' (None). Got {tracker}")
     return {"slope": slope, "delta_phi": delta_phi}
 
 
-def compute_solar_power(df_rad, lat, lon, panel_slope, panel_azimuth, albedo, eta_rad_to_el, tracking=None):
+def compute_solar_power(df_rad, lat, lon, panel_slope, panel_azimuth, albedo, eta_el, tracking=None):
     """Compute solar power from radiation data for a single panel location
 
     df_rad : pandas.DataFrame with UTC timestamp index and these columns:
@@ -136,8 +138,8 @@ def compute_solar_power(df_rad, lat, lon, panel_slope, panel_azimuth, albedo, et
     albedo : float
         ground albedo
 
-    eta_rad_to_el : float
-        conversion efficiency solar radiation to eletric power output
+    eta_el : float
+        efficiency of electrical system from panel to grid connection point
 
     tracking : str
         panel tracking type (None, "azimuth", "2-axis")
@@ -189,7 +191,8 @@ def compute_solar_power(df_rad, lat, lon, panel_slope, panel_azimuth, albedo, et
     rad_on_tilted_surface_w_per_m2 = rad_on_tilted_surface / 3600
 
     # Def panel capacity: output under standard test conditions: 1000 W/m2 irradiation
-    # Power output per installed capacity:
-    solar_power = rad_on_tilted_surface_w_per_m2 * eta_rad_to_el / 1000
+    # Power output per installed capacity (so electrical system efficiency is relevant,
+    # but not panel conversion efficiency which is instead reflected in panel power capacity)
+    solar_power = rad_on_tilted_surface_w_per_m2 * eta_el / 1000
 
     return solar_power

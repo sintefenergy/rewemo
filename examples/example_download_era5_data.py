@@ -1,7 +1,10 @@
 from rewemo import era5
-import pandas as pd
 from pathlib import Path
 import logging
+
+# Data download takes some time, so try first for a smaller time range (e.g. a month or a single year)
+# 1 month of data for Europe requires about 300 MB, so think about where to store the data
+# Data download requires a CDS api token (register here:)
 
 output_data_path = Path("../data/data_europe")
 area_europe = [70, -10, 35, 30]  # [north, west, south, east]

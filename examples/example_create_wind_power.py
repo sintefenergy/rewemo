@@ -12,7 +12,7 @@ files_wind_data = "C:/Users/hsven/code/energy_timeseries/era5/data_europe/era5da
 output_path = Path("./output_wind_timeseies")
 
 with open(file_wpp_locations, "r", encoding="utf8") as f:
-    wpp_locations = pd.DataFrame(safe_load(f)).T
+    wpp_locations = pd.DataFrame.from_dict(safe_load(f), orient="index")
 power_curves = pd.read_csv(file_power_curves, index_col=0)
 
 logging.info("Extracting wind data from ERA5 GRIB files (may take some time)")

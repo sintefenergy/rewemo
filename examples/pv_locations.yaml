@@ -1,0 +1,16 @@
+smøla:
+  lat: 63.407
+  lon: 7.924
+  slope: 30 # degrees from horizontal plane
+  azimuth: 180 # degrees from north
+  albedo: 0.2
+  tracking: "fixed"
+  eta_el: 0.8 # efficiency of electrical system
+tonstad:
+  lat: 58.5316
+  lon: 6.7928
+  slope: 30 # degrees from horizontal plane
+  azimuth: 180 # degrees from north
+  albedo: 0.2
+  tracking: null
+  eta_el: 0.8 # efficiency of electrical system
