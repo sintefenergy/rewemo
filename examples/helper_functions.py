@@ -3,7 +3,9 @@
 """
 
 # %% Import
+from yaml import safe_load
 import numpy as np
+import pandas as pd
 
 
 # %% Constants, including unit conversion factors
@@ -23,13 +25,11 @@ def calculate_indicators_windp(wind_data, power_curve, key_indicators, area):
         key_indicators: dataframe with diagnostic indicator values
         area: name of site
         
-    Returns
-    -------
-    Dictionary:
+    Returns:
         key_indicators: dataframe with diagnostic indicator values, updated
             
     Notes
-    -------
+ 
     
     """
     
@@ -82,4 +82,82 @@ def calculate_indicators_windp(wind_data, power_curve, key_indicators, area):
         np.array((wind_data[area]['power']))))
         
     return key_indicators
+
+
+# %% if 
+if __name__ == '__main__':
+    
+    """             
+    If code executed as program, do several things:
+        Load previously calculated wind power outputs from data files
+        Group data for individual locations by larger areas
+        Calculate key diagnostic indicator values
+        Aggregate data for locations to larger areas
+
+    """
+    
+           
+    # """ Preparations """
+    from example_create_wind_power import (KEY_INDICATORS_NAMES,
+        file_power_curves)
+    areas = ['VESTSYD', 'NORGEMIDT'] # Larger (aggregate) areas considered
+    path_root = 'output_wind_timeseries/windpower_' # Data path, root
+    wind_data_grouped_by_area = {}
+    key_indicators_grouped_by_area = {}
+    power_curves = pd.read_csv(file_power_curves, index_col=0)
+    
+    # """ Do several tings for all areas """
+    for area_index, area in enumerate(areas):
+            
+        # """ Import data from files and group by area """ 
+        file_wpp_locations = "wpp_locations_"+area+".yaml"
+        with open(file_wpp_locations, "r", encoding="utf8") as f:
+            wpp_locations = pd.DataFrame.from_dict(safe_load(f),
+                orient="index")     
+        wind_data_grouped_by_area[area] = {}
+        for i, wpp in wpp_locations.iterrows():
+            wind_data_grouped_by_area[area][i] = pd.read_csv(
+                path_root+i+'.csv', sep=',', index_col='time')
+            
+        # """ Calculate key diagnostic indicator values """
+        key_indicators_grouped_by_area[area] = pd.DataFrame(
+            index=wind_data_grouped_by_area[area].keys(),
+            columns=KEY_INDICATORS_NAMES)
+        if area_index==0:  
+            # Assume same time steps defined for all locations
+            time_steps = wind_data_grouped_by_area[area][
+                list(wind_data_grouped_by_area[area].keys())[0]].index
+        for i, wpp in wpp_locations.iterrows():
+            pcurve = power_curves[wpp["power_curve"]]
+            key_indicators_grouped_by_area[area] = (
+                calculate_indicators_windp(wind_data_grouped_by_area[area],
+                pcurve, key_indicators_grouped_by_area[area], i))
+            
+        # """ Aggregate data for larger areas """
+        if area_index==0:
+            wind_data_aggregated_by_area = pd.DataFrame(index=time_steps,
+                columns=areas) # Initiate dataframe
+        wind_data_power_in_array = np.zeros(
+            [len(time_steps), len(wpp_locations)]) # Initiate temporary array
+        for index, wpp_name in enumerate(wpp_locations.T):
+            wind_data_power_in_array[:,index] = np.array(
+                wind_data_grouped_by_area[area][wpp_name]['power'])
+        wind_data_aggregated_by_area[area] = np.average(
+            wind_data_power_in_array, axis=1)
+        del wind_data_power_in_array
         
+        
+
+            
+            
+            
+            
+            
+            
+        
+            
+        
+        
+        
+    
+    
