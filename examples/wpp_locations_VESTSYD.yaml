@@ -1,0 +1,25 @@
+bjerkreim:
+  lat: 58.5865
+  lon: 5.9000
+  power_curve: "avg_lowland_upland"
+  wind_scaling: 1
+egersund:
+  lat: 58.4262
+  lon: 6.0841
+  power_curve: "avg_lowland_upland"
+  wind_scaling: 1
+gismarvik:
+  lat: 59.3233
+  lon: 5.4289
+  power_curve: "avg_lowland_upland"
+  wind_scaling: 1
+høg-jæren:
+  lat: 58.6464
+  lon: 5.7540
+  power_curve: "avg_lowland_upland"
+  wind_scaling: 1
+tellenes:
+  lat: 58.3436
+  lon: 6.4357
+  power_curve: "avg_lowland_upland"
+  wind_scaling: 1
