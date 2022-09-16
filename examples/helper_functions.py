@@ -18,7 +18,7 @@ SMALL_NUMBER = 1e-9
 
 def calculate_indicators_windp(wind_data, power_curve, key_indicators, area):
     
-    """ 
+    """ Calculate diagnostic indicator values
     Args:
         wind_data: dataframe with u, v and p for given site
         power_curve: array with power curve for given site
@@ -84,6 +84,50 @@ def calculate_indicators_windp(wind_data, power_curve, key_indicators, area):
     return key_indicators
 
 
+def sort_data(data, variable_names=['u100', 'v100', 'power']):
+            
+    """ Sort data for the purpose of duration curves/analyses
+    Args:
+        data: dictionary with dataframes
+        variable_names: names of variables to sort
+    
+    Returns:
+        data_sorted: dictionary with sorted data
+                
+    Notes:
+        Sorting done for all dataframes in dict 'data' and all variable names, 
+        keeping track of time steps
+    
+    """
+    
+    # Initiate dictionary to hold sorted values
+    data_sorted = {}
+    
+    # For all dataframes ('df') in data input
+    for df in data:
+        
+        data_sorted[df] = {} # Initiate dict
+        
+        for var in variable_names:
+            
+            # Determine sorted values (minuses to reverse to descending order)
+            values_temp = -np.sort(-data[df][var])
+            
+            # Determine indexes of sorted values
+            index_temp = np.argsort(np.array(-data[df][var]))
+            time_steps_sorted = data[df][var].index[tuple([index_temp])]
+            
+            # Determine sorted values 
+            data_sorted[df][var] = pd.DataFrame(values_temp, 
+                index=time_steps_sorted, columns=[var])
+            del values_temp, index_temp
+            
+            # Set index name
+            data_sorted[df][var].index.name = 'time'
+            
+    return data_sorted
+
+
 # %% if 
 if __name__ == '__main__':
     
@@ -93,9 +137,9 @@ if __name__ == '__main__':
         Group data for individual locations by larger areas
         Calculate key diagnostic indicator values
         Aggregate data for locations to larger areas
+    Assume same time steps defined for all locations
 
     """
-    
            
     # """ Preparations """
     from example_create_wind_power import (KEY_INDICATORS_NAMES,
@@ -103,6 +147,7 @@ if __name__ == '__main__':
     areas = ['VESTSYD', 'NORGEMIDT'] # Larger (aggregate) areas considered
     path_root = 'output_wind_timeseries/windpower_' # Data path, root
     wind_data_grouped_by_area = {}
+    wind_data_grouped_by_area_and_sorted = {}
     key_indicators_grouped_by_area = {}
     power_curves = pd.read_csv(file_power_curves, index_col=0)
     
@@ -124,7 +169,6 @@ if __name__ == '__main__':
             index=wind_data_grouped_by_area[area].keys(),
             columns=KEY_INDICATORS_NAMES)
         if area_index==0:  
-            # Assume same time steps defined for all locations
             time_steps = wind_data_grouped_by_area[area][
                 list(wind_data_grouped_by_area[area].keys())[0]].index
         for i, wpp in wpp_locations.iterrows():
@@ -146,6 +190,10 @@ if __name__ == '__main__':
             wind_data_power_in_array, axis=1)
         del wind_data_power_in_array
         
+        
+        # """ Sort data """
+        wind_data_grouped_by_area_and_sorted[area] = sort_data(
+            wind_data_grouped_by_area[area])
         
 
             
