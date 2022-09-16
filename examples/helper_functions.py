@@ -6,6 +6,7 @@
 from yaml import safe_load
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 # %% Constants, including unit conversion factors
@@ -128,7 +129,29 @@ def sort_data(data, variable_names=['u100', 'v100', 'power']):
     return data_sorted
 
 
-# %% if 
+def plot_duration_curve(data_sorted, area, variable='power'):
+    
+    """ Plot duration curves with sorted data
+    Args:
+        data_sorted: dictionary with dataframes with already sorted values
+        area: string, name of area
+        variable: string, name of variable
+        
+     """         
+    
+    fig, ax = plt.subplots()
+    for wpp in data_sorted:
+        ax.plot(np.array(data_sorted[wpp][variable]), label=wpp)
+    ax.set_ylabel('normalized power output [nominal power=1]')
+    ax.legend()
+    ax.set_title('duration_curve_'+area)
+    plt.gcf().set_dpi(300)
+    plt.show()
+    fig.savefig('duration_curve_'+area+'.png', dpi=300,  bbox_inches='tight')
+        
+
+
+# %%  
 if __name__ == '__main__':
     
     """             
@@ -191,9 +214,12 @@ if __name__ == '__main__':
         del wind_data_power_in_array
         
         
-        # """ Sort data """
+        # """ Sort data and plot duration curves """
         wind_data_grouped_by_area_and_sorted[area] = sort_data(
             wind_data_grouped_by_area[area])
+        plot_duration_curve(wind_data_grouped_by_area_and_sorted[area], area,
+            variable='power')
+
         
 
             
