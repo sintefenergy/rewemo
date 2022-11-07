@@ -7,8 +7,8 @@ import logging
 
 # Modify these:
 file_wpp_locations = "wpp_locations.yaml"
-file_power_curves = "ncep_reanalysis/wind_powercurves_tradewind.csv"
-files_wind_data = "C:/Users/hsven/code/energy_timeseries/era5/data_europe/era5data_month=2021-*.grib"
+file_power_curves = "../src/rewemo/ncep_reanalysis/wind_powercurves_tradewind.csv"
+files_wind_data = "J:/DOK/12/hsven/era5_data/data_europe/era5data_month=2021-*.grib"
 output_path = Path("./output_wind_timeseies")
 
 with open(file_wpp_locations, "r", encoding="utf8") as f:

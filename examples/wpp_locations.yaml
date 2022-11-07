@@ -8,3 +8,8 @@ tonstad:
   lon: 6.7928
   power_curve: "offshore"
   wind_scaling: 1
+hywind:
+  lat: 59.14
+  lon: 5.0295
+  power_curve: "offshore"
+  wind_scaling: 1.0

@@ -5,11 +5,10 @@ from rewemo import era5
 from yaml import safe_load
 import logging
 import numpy as np
-import xarray as xr
 
 # Modify these:
 file_pv_locations = "pv_locations.yaml"
-files_era5_data = "C:/Users/hsven/code/energy_timeseries/data/data_europe/era5data_month=2021-*.grib"
+files_era5_data = "J:/DOK/12/hsven/era5_data/data_europe/era5data_month=2021-*.grib"
 output_path = Path("./output_solar_timeseies")
 
 with open(file_pv_locations, "r", encoding="utf8") as f:
