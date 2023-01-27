@@ -161,8 +161,11 @@ def extract_solar_radiation_at_locations(file_pattern, locations):
 
     Returns : dictionary of pandas.DataFrames. The keys are the indices in the locations input dataframe
     """
+    logging.info("Reading ssrd solar radiation data...")
     ds_ssrd = xr.open_mfdataset(file_pattern, engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "ssrd"}})
+    logging.info("Reading fdir solar radiation data...")
     ds_fdir = xr.open_mfdataset(file_pattern, engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "fdir"}})
+    logging.info("Extracting data for selected points...")
     data_dict = {}
     for i, row in locations.iterrows():
         logging.info(i)
@@ -191,12 +194,15 @@ def extract_wind_speed_at_locations(file_pattern, locations):
 
     Returns : dictionary of pandas.DataFrames. The keys are the indices in the locations input dataframe
     """
+    logging.info("Reading 100u wind speed data...")
     ds_u_wind = xr.open_mfdataset(
         file_pattern, engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "100u"}}
     )
+    logging.info("Reading 100v wind speed data...")
     ds_v_wind = xr.open_mfdataset(
         file_pattern, engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "100v"}}
     )
+    logging.info("Extracting data for selected points...")
     data_dict = {}
     for i, row in locations.iterrows():
         logging.info(i)
@@ -209,4 +215,66 @@ def extract_wind_speed_at_locations(file_pattern, locations):
         df["u100"] = dataarray_to_dataframe(da_u100)
         df["v100"] = dataarray_to_dataframe(da_v100)
         data_dict[i] = df
+    return data_dict
+
+
+def extract_wind_speed_at_locations2(file_list, locations, return_locations=False):
+    """Extract wind speed data from era5 grib files for selected locations
+
+    Nearest datapoint is used
+
+    file_list : list of files
+        which files to read
+    locations : pandas.DataFrame
+        columns "lat" and "lon" give locations of wind power plant
+    return_locations : bool
+        whether to return locations dict with added information on which data points used
+
+    Returns : dictionary of pandas.DataFrames. The keys are the indices in the locations input dataframe
+    """
+
+    # Read a single file to get coordinates
+    logging.info("Reading single GRIB file to find coordinates of nearest data points")
+    ds_u_wind = xr.open_dataset(file_list[0], engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "100u"}})
+    for i in locations.index:
+        lat = locations.loc[i, "lat"]
+        lon = locations.loc[i, "lon"]
+        data_lat, data_lon = find_nearest_datapoint(lat, lon, ds_u_wind)
+        locations.loc[i, "data_lat"] = data_lat
+        locations.loc[i, "data_lon"] = data_lon
+
+    logging.info("Reading GRIB data files...")
+    data_dict = dict()
+    for file_name in file_list:
+        print(file_name)
+        logging.info(file_name)
+        logging.debug("Reading 100u wind speed data...")
+        ds_u_wind = xr.open_dataset(
+            file_name, engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "100u"}}
+        )
+        logging.debug("Reading 100v wind speed data...")
+        ds_v_wind = xr.open_dataset(
+            file_name, engine="cfgrib", backend_kwargs={"filter_by_keys": {"shortName": "100v"}}
+        )
+        logging.debug("Extracting data for selected points...")
+        for i, row in locations.iterrows():
+            logging.debug(i)
+            data_lat = row["data_lat"]
+            data_lon = row["data_lon"]
+            da_u100 = ds_u_wind.sel(latitude=data_lat, longitude=data_lon).u100
+            da_v100 = ds_v_wind.sel(latitude=data_lat, longitude=data_lon).v100
+            df = pd.DataFrame()
+            df["u100"] = dataarray_to_dataframe(da_u100)
+            df["v100"] = dataarray_to_dataframe(da_v100)
+            if i in data_dict:
+                data_dict[i].append(df)
+            else:
+                data_dict[i] = [df]
+
+    # Concatenate data dataframes
+    for i in data_dict:
+        data_dict[i] = pd.concat(data_dict[i])
+
+    if return_locations:
+        return data_dict, locations
     return data_dict

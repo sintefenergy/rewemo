@@ -5,3 +5,4 @@ data
 examples/.ipynb_checkpoints/
 examples/output_wind_timeseies/
 *.egg-info/
+examples/output_*
