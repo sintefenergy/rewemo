@@ -3,13 +3,16 @@ smøla:
   lon: 7.924
   power_curve: "offshore"
   wind_scaling: 1
+  cf_target: 0.40
 tonstad:
   lat: 58.5316
   lon: 6.7928
   power_curve: "offshore"
   wind_scaling: 1
+  cf_target: 0.35
 hywind:
   lat: 59.14
   lon: 5.0295
   power_curve: "offshore"
   wind_scaling: 1.0
+  cf_target: 0.48

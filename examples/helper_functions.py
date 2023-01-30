@@ -148,7 +148,76 @@ def plot_duration_curve(data_sorted, area, variable='power'):
     plt.gcf().set_dpi(300)
     plt.show()
     fig.savefig('duration_curve_'+area+'.png', dpi=300,  bbox_inches='tight')
+
+      
+# %%
+
+def compute_wind_power2(df_wind, df_power_curve, cf_target=None):
+    """Compute solar power from radiation data for a single panel location
+       Wind speed scaling is performed iteratively to match a target value
+       for average capacity factor (cf). The scaling follows the approach
+       outlined in section 3.2 'Wind speed correction bias' in Staffell and
+       Pfenninger (2016), DOI: 10.1016/j.energy.2016.08.068
+
+    df_wind : pandas.DataFrame with UTC timestamp index and these columns:
+        u100 : u component wind speed at 100 m height
+        v100 : v component wind speed at 100 m height
+
+    power_curve : numpy array with wind speed vs power output
+
+    cf_target : float with target average capacity factor value)
+
+    """
+    
+    # Wind speed from u and v wind speed components
+    wind_speed = np.sqrt(df_wind["u100"] ** 2 + df_wind["v100"] ** 2)
+    
+    # Wind power
+    wind_power = np.interp(wind_speed, df_power_curve.index,
+        df_power_curve.values, left=0, right=0)
+    
+    if cf_target is None:
+        print('cf_target is None')
+        return (wind_power, None, None)
+    
+    # Average capacity factor and deviation from target value
+    cf_calculate = np.average(wind_power)
+    cf_deviation = cf_calculate-cf_target
+    
+    # Ratio of target capacity factor to calculated capacity factor
+    # epsilon, alpha and beta defined following Staffell and Pfenninger (2016)
+    epsilon_cf = cf_target/cf_calculate # eq (2) Staffell and Pfenninger (2016)
+    alpha = 0.6*epsilon_cf + 0.2        # eq (6) Staffell and Pfenninger (2016)
+    beta = 0
         
+    # Scale wind speed to match target value for average capacity factor
+    ITERATIONS_MAX = 1000
+    TOLERANCE = 0.0005
+    BETA_INCREMENT = 0.01
+    iterations_counter = 0
+    if abs(cf_deviation)<=TOLERANCE:
+        print('cf_devation: ', cf_deviation)
+        return (wind_power, None, None)
+    while (abs(cf_deviation)>TOLERANCE and iterations_counter<=ITERATIONS_MAX):
+        
+        # Update beta
+        beta = beta + BETA_INCREMENT*np.sign(-cf_deviation)
+        
+        # New adjusted wind speed, wind power and capacity factor deviation
+        df_wind_new = alpha*df_wind + beta # eq (5) 
+        wind_speed_new = np.sqrt(
+            df_wind_new["u100"] ** 2 + df_wind_new["v100"] ** 2)
+        wind_power_new = np.interp(wind_speed_new, df_power_curve.index,
+            df_power_curve.values, left=0, right=0)
+        cf_deviation = np.average(wind_power_new)-cf_target
+        
+        # Counter
+        iterations_counter = iterations_counter + 1
+
+    wind_power = wind_power_new
+    
+    print(iterations_counter, wind_power, alpha, beta)
+    return wind_power, alpha, beta
 
 
 # %%  
