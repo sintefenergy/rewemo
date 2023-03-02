@@ -254,7 +254,7 @@ if __name__ == '__main__':
         wind_data_grouped_by_area[area] = {}
         for i, wpp in wpp_locations.iterrows():
             wind_data_grouped_by_area[area][i] = pd.read_csv(
-                path_root+i+'.csv', sep=',', index_col='time')
+                path_root+i+'.csv', sep=';', index_col='time')
             
         # """ Calculate key diagnostic indicator values """
         key_indicators_grouped_by_area[area] = pd.DataFrame(

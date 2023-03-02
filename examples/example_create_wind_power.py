@@ -41,6 +41,13 @@ for i, wpp in wpp_locations.iterrows():
     pcurve_ref = wpp["power_curve"]
     pcurve = power_curves[pcurve_ref]
     
+    # If capacity factor target not defined in input data, add assumption here
+    if "cf_target" not in wpp.index:
+        if wpp["power_curve"] == "offshore":
+            wpp["cf_target"] = 0.40
+        else:
+            wpp["cf_target"] = 0.35
+    
     # Use either option 1 or option #2 below
     # Option 1: predefined scaling factor for wind speed
     # wind_scaling = wpp["wind_scaling"]
@@ -51,7 +58,6 @@ for i, wpp in wpp_locations.iterrows():
     key_indicators['alpha'].loc[i] = alpha
     key_indicators['beta'].loc[i] = beta
     
-    print(i, alpha, beta)
     wind_data[i]["power"] = windp
     
     # Calculate diagnostic indicator values
