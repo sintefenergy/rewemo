@@ -187,7 +187,10 @@ def compute_wind_power2(df_wind, df_power_curve, cf_target=None):
     # Ratio of target capacity factor to calculated capacity factor
     # epsilon, alpha and beta defined following Staffell and Pfenninger (2016)
     epsilon_cf = cf_target/cf_calculate # eq (2) Staffell and Pfenninger (2016)
-    alpha = 0.6*epsilon_cf + 0.2        # eq (6) Staffell and Pfenninger (2016)
+    if df_power_curve=="offshore":
+        alpha = 0.6*epsilon_cf + 0.2    # eq (6) Staffell and Pfenninger (2016)
+    else:
+        alpha = 0.4*epsilon_cf + 0.2    # Own adjustment for onshore
     beta = 0
         
     # Scale wind speed to match target value for average capacity factor
@@ -216,7 +219,7 @@ def compute_wind_power2(df_wind, df_power_curve, cf_target=None):
 
     wind_power = wind_power_new
     
-    print(iterations_counter, wind_power, alpha, beta)
+    print(iterations_counter, np.average(wind_power), epsilon_cf, alpha, beta)
     return wind_power, alpha, beta
 
 
