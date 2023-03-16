@@ -1,42 +1,35 @@
 geitfjellet:
-  lat: 63.3553
-  lon: 9.4873
-  power_curve: "avg_lowland_upland"
+  lat: 63.2139
+  lon: 9.2942
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
 roan:
   lat: 64.1392
   lon: 10.2987
-  power_curve: "avg_lowland_upland"
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
 hitra:
   lat: 63.5112
   lon: 8.7793
-  power_curve: "avg_lowland_upland"
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
 storheia:
   lat: 63.8769
   lon: 10.1511
-  power_curve: "avg_lowland_upland"
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
 kvenndalsfjellet:
   lat: 64.0453
   lon: 10.1566
-  power_curve: "avg_lowland_upland"
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
 harbaksfjellet:
   lat: 64.0726
   lon: 10.0927
-  power_curve: "avg_lowland_upland"
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
 valsneset:
   lat: 63.8120
   lon: 9.6276
-  power_curve: "avg_lowland_upland"
+  power_curve: "avg_lowland_upland_upward_adjustment"
   wind_scaling: 1
-  cf_target: 0.33
