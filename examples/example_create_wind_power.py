@@ -9,7 +9,7 @@ from helper_functions import (
 
 # Modify these:
 areas = ['VESTSYD', 'NORGEMIDT'] # Larger (aggregate) areas considered
-file_power_curves = "../src/rewemo/ncep_reanalysis/wind_powercurves_tradewind.csv"
+file_power_curves = "../src/rewemo/ncep_reanalysis/wind_powercurves_tradewind_with_expansion.csv"
 files_wind_data = "../data/data_europe_era5/era5data_month=20*.grib"
 output_path = "output_wind_timeseries/"
 
@@ -38,7 +38,7 @@ for area_index, area in enumerate(areas):
         'time fraction: zero power high wind (%)',
         'time fraction: max power (%)',
         'min power', 'min power excl. zero power', 'max power', 'stdev power',
-        'alpha', 'beta']
+        'epsilon_cf', 'alpha', 'beta']
     key_indicators = pd.DataFrame(index=wind_data.keys(),
         columns=KEY_INDICATORS_NAMES)
     
@@ -50,9 +50,9 @@ for area_index, area in enumerate(areas):
         # If capacity factor target not defined in input data, add assumption
         if "cf_target" not in wpp.index:
             if wpp["power_curve"] == "offshore":
-                wpp["cf_target"] = 0.40
+                wpp["cf_target"] = 0.42
             else:
-                wpp["cf_target"] = 0.35
+                wpp["cf_target"] = 0.34
         
         # Use either option 1 or option #2 below
         # Option 1: predefined scaling factor for wind speed
@@ -60,9 +60,10 @@ for area_index, area in enumerate(areas):
         # windp = wp.compute_wind_power(df_wind=wind_data[i],
         #     df_power_curve=pcurve, wind_scaling=wind_scaling)
         # Option 2: scale to predefined average capacity factor
-        (windp, alpha, beta) = compute_wind_power2(
+        (windp, epsilon_cf, alpha, beta) = compute_wind_power2(
             df_wind=wind_data[i], df_power_curve=pcurve,
             cf_target=wpp["cf_target"])
+        key_indicators['epsilon_cf'].loc[i] = epsilon_cf
         key_indicators['alpha'].loc[i] = alpha
         key_indicators['beta'].loc[i] = beta
         
